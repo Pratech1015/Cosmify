@@ -4,9 +4,9 @@
 
 Cosmify is a modern, open-source Android music player that blends elegant design with powerful features.
 
-[![Latest release](https://img.shields.io/github/v/release/Pratech1015/Cosmify?include_prereleases)](https://github.com/z-huang/music/releases)
+[![Latest release](https://img.shields.io/github/v/release/Pratech1015/Cosmify?include_prereleases)](https://github.com/Pratech1015/Cosmify/releases)
 [![License](https://img.shields.io/github/license/Pratech1015/Cosmify)](https://www.gnu.org/licenses/gpl-3.0)
-[![Downloads](https://img.shields.io/github/downloads/Pratech1015/Cosmify/total)](https://github.com/z-huang/InnerTune/releases)
+[![Downloads](https://img.shields.io/github/downloads/Pratech1015/Cosmify/total)](https://github.com/Pratech1015/Cosmify/releases)
 [![Translation](https://hosted.weblate.org/widget/innertune/svg-badge.svg)](https://hosted.weblate.org/engage/innertune/)
 
 [<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Get it on GitHub" height="80">](https://github.com/Pratech1015/Cosmify/releases/latest)
