@@ -73,7 +73,7 @@ If you'd like to help translate Cosmify, check out [our project in Weblate!](pla
 > Doing so may cause merging issues, and may end up becoming unmergeable.
 > It's also likely that other people have also gone and helped with the translation process of the language you want to update, but it hasn't been merged yet.
 
-[![Translation status](placeholder)
+``Translation Status``
 
 Thank you for helping make Cosmify more accessible to people *worldwide!*
 
