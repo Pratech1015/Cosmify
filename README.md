@@ -77,14 +77,6 @@ If you'd like to help translate Cosmify, check out [our project in Weblate!](pla
 
 Thank you for helping make Cosmify more accessible to people *worldwide!*
 
-## Donate
-
-If you like InnerTune, you're welcome to send a donation. Donations will support the development,
-including bug fixes and new features.
-
-<a href="https://liberapay.com/zionhuang"><img src="https://raw.githubusercontent.com/z-huang/InnerTune/dev/assets/liberapay.png" alt="Liberapay" height="60" ></a>
-<a href="https://www.buymeacoffee.com/zionhuang"><img src="https://raw.githubusercontent.com/z-huang/InnerTune/dev/assets/buymeacoffee.png" alt="Liberapay" height="60" ></a>
-
 ## Credit
 
 All thanks to [InnerTune](https://github.com/z-huang/InnerTune) for the fork and idea. 
