@@ -7,11 +7,11 @@ Cosmify is a modern, open-source Android music player that blends elegant design
 [![Latest release](https://img.shields.io/github/v/release/Pratech1015/Cosmify?include_prereleases)](https://github.com/Pratech1015/Cosmify/releases)
 [![License](https://img.shields.io/github/license/Pratech1015/Cosmify)](https://www.gnu.org/licenses/gpl-3.0)
 [![Downloads](https://img.shields.io/github/downloads/Pratech1015/Cosmify/total)](https://github.com/Pratech1015/Cosmify/releases)
-[![Translation](https://hosted.weblate.org/widget/innertune/svg-badge.svg)](https://hosted.weblate.org/engage/innertune/)
+[![Translation](https://hosted.weblate.org/widget/cosmify/svg-badge.svg)](#)
 
 [<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Get it on GitHub" height="80">](https://github.com/Pratech1015/Cosmify/releases/latest)
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](https://f-droid.org/packages/com.zionhuang.music)
-[<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" height="80">](https://apt.izzysoft.de/fdroid/index/apk/com.zionhuang.music)
+[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](#)
+[<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" height="80">](#)
 
 
 [Compare versions](https://github.com/Pratech1015/Cosmify/wiki/App-Versions)
