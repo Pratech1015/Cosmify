@@ -10,9 +10,9 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "InnerTune"
+rootProject.name = "Cosmify"
 include(":app")
-include(":innertube")
+include(":cosmify")
 include(":kugou")
 include(":lrclib")
 include(":material-color-utilities")
