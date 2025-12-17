@@ -10,7 +10,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Cosmify"
+rootProject.name = "Cosmify-Root"
 include(":app")
 include(":cosmify")
 include(":kugou")
