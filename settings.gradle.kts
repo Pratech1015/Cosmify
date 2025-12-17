@@ -12,7 +12,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "Cosmify-Root"
 include(":app")
-include(":cosmify")
+include(":innertube")
 include(":kugou")
 include(":lrclib")
 include(":material-color-utilities")
