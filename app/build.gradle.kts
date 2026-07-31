@@ -18,11 +18,11 @@ if (isFullBuild && System.getenv("PULL_REQUEST") == null) {
 }
 
 android {
-    namespace = "com.zionhuang.music"
+    namespace = "com.prismco.cosmify"
     compileSdk = 35
     buildToolsVersion = "35.0.0"
     defaultConfig {
-        applicationId = "com.zionhuang.music"
+        applicationId = "com.prismco.cosmify"
         minSdk = 24
         targetSdk = 35
         versionCode = 26
