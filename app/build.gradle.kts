@@ -1,5 +1,7 @@
 @file:Suppress("UnstableApiUsage")
 
+import java.security.KeyStore
+
 val isFullBuild: Boolean by rootProject.extra
 
 plugins {
@@ -61,11 +63,34 @@ android {
     
     signingConfigs {
         getByName("debug") {
-            if (System.getenv("MUSIC_DEBUG_SIGNING_STORE_PASSWORD") != null) {
-                storeFile = file(System.getenv("MUSIC_DEBUG_KEYSTORE_FILE"))
-                storePassword = System.getenv("MUSIC_DEBUG_SIGNING_STORE_PASSWORD")
+            val envFile = System.getenv("MUSIC_DEBUG_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
+            val candidateFile = envFile?.let { file(it) } ?: file("music-debug.jks")
+            if (candidateFile.exists()) {
+                val envStorePass = System.getenv("MUSIC_DEBUG_SIGNING_STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+                val envKeyPass = System.getenv("MUSIC_DEBUG_SIGNING_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+
+                val validStorePass = listOfNotNull(envStorePass, "android").firstOrNull { pass ->
+                    try {
+                        KeyStore.getInstance(candidateFile, pass.toCharArray())
+                        true
+                    } catch (_: Exception) {
+                        false
+                    }
+                } ?: "android"
+
+                val validKeyPass = listOfNotNull(envKeyPass, validStorePass, "android").firstOrNull { pass ->
+                    try {
+                        val ks = KeyStore.getInstance(candidateFile, validStorePass.toCharArray())
+                        ks.getKey("debug", pass.toCharArray()) != null
+                    } catch (_: Exception) {
+                        false
+                    }
+                } ?: validStorePass
+
+                storeFile = candidateFile
+                storePassword = validStorePass
                 keyAlias = "debug"
-                keyPassword = System.getenv("MUSIC_DEBUG_SIGNING_KEY_PASSWORD")
+                keyPassword = validKeyPass
             }
         }
     }
