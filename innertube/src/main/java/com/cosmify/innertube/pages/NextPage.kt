@@ -32,13 +32,13 @@ object NextPage {
                     id = it.navigationEndpoint?.browseEndpoint?.browseId
                 )
             } ?: return null,
-            album = longByLineRuns.getOrNull(1)?.firstOrNull()?.takeIf {
-                it.navigationEndpoint?.browseEndpoint != null
-            }?.let {
-                Album(
-                    name = it.text,
-                    id = it.navigationEndpoint?.browseEndpoint?.browseId!!
-                )
+            album = longByLineRuns.getOrNull(1)?.firstOrNull()?.let { run ->
+                run.navigationEndpoint?.browseEndpoint?.takeIf { it.isAlbumEndpoint }?.browseId?.let { browseId ->
+                    Album(
+                        name = run.text,
+                        id = browseId
+                    )
+                }
             },
             duration = renderer.lengthText?.runs?.firstOrNull()?.text?.parseTime() ?: return null,
             thumbnail = renderer.thumbnail.thumbnails.lastOrNull()?.url ?: return null,

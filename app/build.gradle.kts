@@ -97,7 +97,7 @@ android {
         includeInBundle = false
     }
     lint {
-        lintConfig = file("app/lint.xml")
+        lintConfig = file("lint.xml")
     }
 }
 

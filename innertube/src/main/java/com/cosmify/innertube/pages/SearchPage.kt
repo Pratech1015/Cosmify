@@ -35,11 +35,13 @@ object SearchPage {
                             id = it.navigationEndpoint?.browseEndpoint?.browseId
                         )
                     } ?: return null,
-                    album = secondaryLine.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
-                        Album(
-                            name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId!!
-                        )
+                    album = secondaryLine.getOrNull(1)?.firstOrNull()?.let { run ->
+                        run.navigationEndpoint?.browseEndpoint?.takeIf { it.isAlbumEndpoint }?.browseId?.let { browseId ->
+                            Album(
+                                name = run.text,
+                                id = browseId
+                            )
+                        }
                     },
                     duration = secondaryLine.lastOrNull()?.firstOrNull()?.text?.parseTime(),
                     thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
