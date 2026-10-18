@@ -119,28 +119,26 @@ class DownloadUtil @Inject constructor(
         }
 
         if (format != null && format.url != null) {
-            val finalFormat = format.let {
-                // Specify range to avoid YouTube's throttling
-                it.copy(url = "${it.url}&range=0-${it.contentLength ?: 10000000}")
-            }
+            val downloadUrl = "${format.url}&range=0-${format.contentLength ?: 10000000}"
+            val expireDuration = (playerResponse?.streamingData?.expiresInSeconds ?: 21600).toLong() * 1000L
 
             database.query {
                 upsert(
                     FormatEntity(
                         id = mediaId,
-                        itag = finalFormat.itag,
-                        mimeType = finalFormat.mimeType.split(";")[0],
-                        codecs = finalFormat.mimeType.split("codecs=").getOrNull(1)?.removeSurrounding("\"") ?: "opus",
-                        bitrate = finalFormat.bitrate,
-                        sampleRate = finalFormat.audioSampleRate,
-                        contentLength = finalFormat.contentLength ?: 5000000L,
+                        itag = format.itag,
+                        mimeType = format.mimeType.split(";")[0],
+                        codecs = format.mimeType.split("codecs=").getOrNull(1)?.removeSurrounding("\"") ?: "opus",
+                        bitrate = format.bitrate,
+                        sampleRate = format.audioSampleRate,
+                        contentLength = format.contentLength ?: 5000000L,
                         loudnessDb = playerResponse?.playerConfig?.audioConfig?.loudnessDb
                     )
                 )
             }
 
-            songUrlCache[mediaId] = finalFormat.url to (System.currentTimeMillis() + (playerResponse?.streamingData?.expiresInSeconds ?: 21600L) * 1000L)
-            return@Factory dataSpec.withUri(finalFormat.url.toUri())
+            songUrlCache[mediaId] = downloadUrl to (System.currentTimeMillis() + expireDuration)
+            return@Factory dataSpec.withUri(downloadUrl.toUri())
         }
 
         // Fallback to yt-dlp if InnerTube had no stream

@@ -688,6 +688,8 @@ class MusicService : MediaLibraryService(),
             }
 
             if (format != null && format.url != null) {
+                val streamUrl = format.url!!
+                val expireDuration = (playerResponse?.streamingData?.expiresInSeconds ?: 21600).toLong() * 1000L
                 database.query {
                     upsert(
                         FormatEntity(
@@ -704,8 +706,8 @@ class MusicService : MediaLibraryService(),
                 }
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId, playerResponse) }
 
-                songUrlCache[mediaId] = format.url.toUri().toString() to (System.currentTimeMillis() + (playerResponse?.streamingData?.expiresInSeconds ?: 21600L) * 1000L)
-                return@Factory dataSpec.withUri(format.url.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
+                songUrlCache[mediaId] = streamUrl to (System.currentTimeMillis() + expireDuration)
+                return@Factory dataSpec.withUri(streamUrl.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
             }
 
             // Fallback to yt-dlp if InnerTube did not yield a playable stream
