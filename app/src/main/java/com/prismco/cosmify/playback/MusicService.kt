@@ -74,6 +74,7 @@ import com.prismco.cosmify.constants.PlayerVolumeKey
 import com.prismco.cosmify.constants.RepeatModeKey
 import com.prismco.cosmify.constants.ShowLyricsKey
 import com.prismco.cosmify.constants.SkipSilenceKey
+import com.prismco.cosmify.constants.UseYtDlpKey
 import com.prismco.cosmify.db.MusicDatabase
 import com.prismco.cosmify.db.entities.Event
 import com.prismco.cosmify.db.entities.FormatEntity
@@ -635,64 +636,100 @@ class MusicService : MediaLibraryService(),
                 return@Factory dataSpec.withUri(it.first.toUri())
             }
 
+            val useYtDlp = dataStore[UseYtDlpKey] ?: true
+            if (useYtDlp) {
+                val ytDlpStream = runBlocking(Dispatchers.IO) {
+                    YtDlpStreamResolver.resolveAudioStream(this@MusicService, mediaId, audioQuality).getOrNull()
+                }
+                if (ytDlpStream != null) {
+                    database.query {
+                        upsert(
+                            FormatEntity(
+                                id = mediaId,
+                                itag = ytDlpStream.itag,
+                                mimeType = ytDlpStream.mimeType.split(";")[0],
+                                codecs = ytDlpStream.mimeType.split("codecs=").getOrNull(1)?.removeSurrounding("\"") ?: "opus",
+                                bitrate = ytDlpStream.bitrate,
+                                sampleRate = ytDlpStream.sampleRate,
+                                contentLength = ytDlpStream.contentLength ?: 5000000L,
+                                loudnessDb = null
+                            )
+                        )
+                    }
+                    scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
+                    songUrlCache[mediaId] = ytDlpStream.url to (System.currentTimeMillis() + ytDlpStream.expiresInSeconds * 1000L)
+                    return@Factory dataSpec.withUri(ytDlpStream.url.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
+                }
+            }
+
             // Check whether format exists so that users from older version can view format details
             // There may be inconsistent between the downloaded file and the displayed info if user change audio quality frequently
             val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
             val playerResponse = runBlocking(Dispatchers.IO) {
                 YouTube.player(mediaId)
-            }.getOrElse { throwable ->
-                when (throwable) {
-                    is ConnectException, is UnknownHostException -> {
-                        throw PlaybackException(getString(R.string.error_no_internet), throwable, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
-                    }
+            }.getOrNull()
 
-                    is SocketTimeoutException -> {
-                        throw PlaybackException(getString(R.string.error_timeout), throwable, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)
+            val format = playerResponse?.let { resp ->
+                if (resp.playabilityStatus.status == "OK") {
+                    if (playedFormat != null) {
+                        resp.streamingData?.adaptiveFormats?.find { it.itag == playedFormat.itag }
+                    } else {
+                        resp.streamingData?.adaptiveFormats
+                            ?.filter { it.isAudio }
+                            ?.maxByOrNull {
+                                it.bitrate * when (audioQuality) {
+                                    AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
+                                    AudioQuality.HIGH -> 1
+                                    AudioQuality.LOW -> -1
+                                } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
+                            }
                     }
+                } else null
+            }
 
-                    else -> throw PlaybackException(getString(R.string.error_unknown), throwable, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+            if (format != null && format.url != null) {
+                database.query {
+                    upsert(
+                        FormatEntity(
+                            id = mediaId,
+                            itag = format.itag,
+                            mimeType = format.mimeType.split(";")[0],
+                            codecs = format.mimeType.split("codecs=").getOrNull(1)?.removeSurrounding("\"") ?: "opus",
+                            bitrate = format.bitrate,
+                            sampleRate = format.audioSampleRate,
+                            contentLength = format.contentLength ?: 5000000L,
+                            loudnessDb = playerResponse?.playerConfig?.audioConfig?.loudnessDb
+                        )
+                    )
                 }
-            }
-            if (playerResponse.playabilityStatus.status != "OK") {
-                throw PlaybackException(playerResponse.playabilityStatus.reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+                scope.launch(Dispatchers.IO) { recoverSong(mediaId, playerResponse) }
+
+                songUrlCache[mediaId] = format.url.toUri().toString() to (System.currentTimeMillis() + (playerResponse?.streamingData?.expiresInSeconds ?: 21600L) * 1000L)
+                return@Factory dataSpec.withUri(format.url.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
             }
 
-            val format =
-                if (playedFormat != null) {
-                    playerResponse.streamingData?.adaptiveFormats?.find {
-                        // Use itag to identify previously played format
-                        it.itag == playedFormat.itag
-                    }
-                } else {
-                    playerResponse.streamingData?.adaptiveFormats
-                        ?.filter { it.isAudio }
-                        ?.maxByOrNull {
-                            it.bitrate * when (audioQuality) {
-                                AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
-                                AudioQuality.HIGH -> 1
-                                AudioQuality.LOW -> -1
-                            } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
-                        }
-                } ?: throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
+            // Fallback to yt-dlp if InnerTube did not yield a playable stream
+            val fallbackYtDlp = runBlocking(Dispatchers.IO) {
+                YtDlpStreamResolver.resolveAudioStream(this@MusicService, mediaId, audioQuality).getOrNull()
+            } ?: throw PlaybackException(getString(R.string.error_no_stream), null, ERROR_CODE_NO_STREAM)
 
             database.query {
                 upsert(
                     FormatEntity(
                         id = mediaId,
-                        itag = format.itag,
-                        mimeType = format.mimeType.split(";")[0],
-                        codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
-                        bitrate = format.bitrate,
-                        sampleRate = format.audioSampleRate,
-                        contentLength = format.contentLength!!,
-                        loudnessDb = playerResponse.playerConfig?.audioConfig?.loudnessDb
+                        itag = fallbackYtDlp.itag,
+                        mimeType = fallbackYtDlp.mimeType.split(";")[0],
+                        codecs = fallbackYtDlp.mimeType.split("codecs=").getOrNull(1)?.removeSurrounding("\"") ?: "opus",
+                        bitrate = fallbackYtDlp.bitrate,
+                        sampleRate = fallbackYtDlp.sampleRate,
+                        contentLength = fallbackYtDlp.contentLength ?: 5000000L,
+                        loudnessDb = null
                     )
                 )
             }
-            scope.launch(Dispatchers.IO) { recoverSong(mediaId, playerResponse) }
-
-            songUrlCache[mediaId] = format.url!! to playerResponse.streamingData!!.expiresInSeconds * 1000L
-            dataSpec.withUri(format.url!!.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
+            scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
+            songUrlCache[mediaId] = fallbackYtDlp.url to (System.currentTimeMillis() + fallbackYtDlp.expiresInSeconds * 1000L)
+            dataSpec.withUri(fallbackYtDlp.url.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
         }
     }
 

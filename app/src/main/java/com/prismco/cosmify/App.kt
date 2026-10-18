@@ -28,8 +28,10 @@ import com.prismco.cosmify.extensions.toInetSocketAddress
 import com.prismco.cosmify.utils.dataStore
 import com.prismco.cosmify.utils.get
 import com.prismco.cosmify.utils.reportException
+import com.prismco.cosmify.playback.YtDlpStreamResolver
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -44,6 +46,10 @@ class App : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         Timber.plant(Timber.DebugTree())
+
+        GlobalScope.launch(Dispatchers.IO) {
+            YtDlpStreamResolver.init(this@App)
+        }
 
         val locale = Locale.getDefault()
         val languageTag = locale.toLanguageTag().replace("-Hant", "") // replace zh-Hant-* to zh-*

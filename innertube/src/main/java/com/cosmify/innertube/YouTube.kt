@@ -445,18 +445,24 @@ object YouTube {
         if (safePlayerResponse.playabilityStatus.status != "OK") {
             return@runCatching playerResponse
         }
-        val audioStreams = innerTube.pipedStreams(videoId).body<PipedResponse>().audioStreams
-        safePlayerResponse.copy(
-            streamingData = safePlayerResponse.streamingData?.copy(
-                adaptiveFormats = safePlayerResponse.streamingData.adaptiveFormats.mapNotNull { adaptiveFormat ->
-                    audioStreams.find { it.bitrate == adaptiveFormat.bitrate }?.let {
-                        adaptiveFormat.copy(
-                            url = it.url
-                        )
+        val audioStreams = runCatching {
+            innerTube.pipedStreams(videoId).body<PipedResponse>().audioStreams
+        }.getOrNull()
+        if (audioStreams != null) {
+            safePlayerResponse.copy(
+                streamingData = safePlayerResponse.streamingData?.copy(
+                    adaptiveFormats = safePlayerResponse.streamingData.adaptiveFormats.mapNotNull { adaptiveFormat ->
+                        audioStreams.find { it.bitrate == adaptiveFormat.bitrate }?.let {
+                            adaptiveFormat.copy(
+                                url = it.url
+                            )
+                        }
                     }
-                }
+                )
             )
-        )
+        } else {
+            safePlayerResponse
+        }
     }
 
     suspend fun next(endpoint: WatchEndpoint, continuation: String? = null): Result<NextResult> = runCatching {

@@ -24,6 +24,8 @@ cd "`dirname \"$PRG\"`/" >/dev/null
 APP_HOME="`pwd -P`"
 cd "$SAVED" >/dev/null
 
+export ANDROID_USER_HOME="${ANDROID_USER_HOME:-$APP_HOME/.android}"
+
 APP_NAME="Gradle"
 APP_BASE_NAME=`basename "$0"`
 

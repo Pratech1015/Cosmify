@@ -269,6 +269,8 @@
     <string name="audio_quality_auto">Auto</string>
     <string name="audio_quality_high">High</string>
     <string name="audio_quality_low">Low</string>
+    <string name="use_yt_dlp">Use yt-dlp playback engine</string>
+    <string name="use_yt_dlp_desc">Extract audio streams via yt-dlp for better performance, unthrottled streaming, and stability</string>
     <string name="queue">Queue</string>
     <string name="persistent_queue">Persistent queue</string>
     <string name="persistent_queue_desc">Restore your last queue when the app starts</string>

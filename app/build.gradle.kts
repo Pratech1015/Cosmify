@@ -178,6 +178,7 @@ dependencies {
     implementation(projects.kugou)
     implementation(projects.lrclib)
     implementation(projects.kizzy)
+    implementation(libs.youtubedl)
 
     implementation(libs.ktor.client.core)
 

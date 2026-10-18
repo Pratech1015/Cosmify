@@ -27,6 +27,7 @@ import com.prismco.cosmify.constants.AutoSkipNextOnErrorKey
 import com.prismco.cosmify.constants.PersistentQueueKey
 import com.prismco.cosmify.constants.SkipSilenceKey
 import com.prismco.cosmify.constants.StopMusicOnTaskClearKey
+import com.prismco.cosmify.constants.UseYtDlpKey
 import com.prismco.cosmify.ui.component.EnumListPreference
 import com.prismco.cosmify.ui.component.IconButton
 import com.prismco.cosmify.ui.component.PreferenceGroupTitle
@@ -42,6 +43,7 @@ fun PlayerSettings(
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
     val (audioQuality, onAudioQualityChange) = rememberEnumPreference(AudioQualityKey, defaultValue = AudioQuality.AUTO)
+    val (useYtDlp, onUseYtDlpChange) = rememberPreference(UseYtDlpKey, defaultValue = true)
     val (persistentQueue, onPersistentQueueChange) = rememberPreference(PersistentQueueKey, defaultValue = true)
     val (skipSilence, onSkipSilenceChange) = rememberPreference(SkipSilenceKey, defaultValue = false)
     val (audioNormalization, onAudioNormalizationChange) = rememberPreference(AudioNormalizationKey, defaultValue = true)
@@ -72,6 +74,14 @@ fun PlayerSettings(
                     AudioQuality.LOW -> stringResource(R.string.audio_quality_low)
                 }
             }
+        )
+
+        SwitchPreference(
+            title = { Text(stringResource(R.string.use_yt_dlp)) },
+            description = stringResource(R.string.use_yt_dlp_desc),
+            icon = { Icon(painterResource(R.drawable.music_note), null) },
+            checked = useYtDlp,
+            onCheckedChange = onUseYtDlpChange
         )
 
         SwitchPreference(

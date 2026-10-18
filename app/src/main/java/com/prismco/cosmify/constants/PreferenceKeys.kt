@@ -38,6 +38,8 @@ enum class AudioQuality {
     AUTO, HIGH, LOW
 }
 
+val UseYtDlpKey = booleanPreferencesKey("useYtDlp")
+
 val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
 val SkipSilenceKey = booleanPreferencesKey("skipSilence")
 val AudioNormalizationKey = booleanPreferencesKey("audioNormalization")

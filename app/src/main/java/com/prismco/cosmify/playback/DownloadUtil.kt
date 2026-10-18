@@ -16,11 +16,13 @@ import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import com.cosmify.innertube.YouTube
 import com.prismco.cosmify.constants.AudioQuality
 import com.prismco.cosmify.constants.AudioQualityKey
+import com.prismco.cosmify.constants.UseYtDlpKey
 import com.prismco.cosmify.db.MusicDatabase
 import com.prismco.cosmify.db.entities.FormatEntity
 import com.prismco.cosmify.di.DownloadCache
 import com.prismco.cosmify.di.PlayerCache
 import com.prismco.cosmify.utils.enumPreference
+import com.prismco.cosmify.utils.preference
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +46,7 @@ class DownloadUtil @Inject constructor(
 ) {
     private val connectivityManager = context.getSystemService<ConnectivityManager>()!!
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
+    private val useYtDlp by preference(context, UseYtDlpKey, true)
     private val songUrlCache = HashMap<String, Pair<String, Long>>()
     private val dataSourceFactory = ResolvingDataSource.Factory(
         CacheDataSource.Factory()
@@ -68,48 +71,100 @@ class DownloadUtil @Inject constructor(
         }
 
         val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
-        val playerResponse = runBlocking(Dispatchers.IO) {
-            YouTube.player(mediaId)
-        }.getOrThrow()
-        if (playerResponse.playabilityStatus.status != "OK") {
-            throw PlaybackException(playerResponse.playabilityStatus.reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+
+        if (useYtDlp) {
+            val ytDlpStream = runBlocking(Dispatchers.IO) {
+                YtDlpStreamResolver.resolveAudioStream(context, mediaId, audioQuality).getOrNull()
+            }
+            if (ytDlpStream != null) {
+                database.query {
+                    upsert(
+                        FormatEntity(
+                            id = mediaId,
+                            itag = ytDlpStream.itag,
+                            mimeType = ytDlpStream.mimeType.split(";")[0],
+                            codecs = ytDlpStream.mimeType.split("codecs=").getOrNull(1)?.removeSurrounding("\"") ?: "opus",
+                            bitrate = ytDlpStream.bitrate,
+                            sampleRate = ytDlpStream.sampleRate,
+                            contentLength = ytDlpStream.contentLength ?: 5000000L,
+                            loudnessDb = null
+                        )
+                    )
+                }
+                songUrlCache[mediaId] = ytDlpStream.url to (System.currentTimeMillis() + ytDlpStream.expiresInSeconds * 1000L)
+                return@Factory dataSpec.withUri(ytDlpStream.url.toUri())
+            }
         }
 
-        val format =
-            if (playedFormat != null) {
-                playerResponse.streamingData?.adaptiveFormats?.find { it.itag == playedFormat.itag }
-            } else {
-                playerResponse.streamingData?.adaptiveFormats
-                    ?.filter { it.isAudio }
-                    ?.maxByOrNull {
-                        it.bitrate * when (audioQuality) {
-                            AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
-                            AudioQuality.HIGH -> 1
-                            AudioQuality.LOW -> -1
-                        } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
-                    }
-            }!!.let {
+        val playerResponse = runBlocking(Dispatchers.IO) {
+            YouTube.player(mediaId)
+        }.getOrNull()
+
+        val format = playerResponse?.let { resp ->
+            if (resp.playabilityStatus.status == "OK") {
+                if (playedFormat != null) {
+                    resp.streamingData?.adaptiveFormats?.find { it.itag == playedFormat.itag }
+                } else {
+                    resp.streamingData?.adaptiveFormats
+                        ?.filter { it.isAudio }
+                        ?.maxByOrNull {
+                            it.bitrate * when (audioQuality) {
+                                AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
+                                AudioQuality.HIGH -> 1
+                                AudioQuality.LOW -> -1
+                            } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
+                        }
+                }
+            } else null
+        }
+
+        if (format != null && format.url != null) {
+            val finalFormat = format.let {
                 // Specify range to avoid YouTube's throttling
                 it.copy(url = "${it.url}&range=0-${it.contentLength ?: 10000000}")
             }
+
+            database.query {
+                upsert(
+                    FormatEntity(
+                        id = mediaId,
+                        itag = finalFormat.itag,
+                        mimeType = finalFormat.mimeType.split(";")[0],
+                        codecs = finalFormat.mimeType.split("codecs=").getOrNull(1)?.removeSurrounding("\"") ?: "opus",
+                        bitrate = finalFormat.bitrate,
+                        sampleRate = finalFormat.audioSampleRate,
+                        contentLength = finalFormat.contentLength ?: 5000000L,
+                        loudnessDb = playerResponse?.playerConfig?.audioConfig?.loudnessDb
+                    )
+                )
+            }
+
+            songUrlCache[mediaId] = finalFormat.url to (System.currentTimeMillis() + (playerResponse?.streamingData?.expiresInSeconds ?: 21600L) * 1000L)
+            return@Factory dataSpec.withUri(finalFormat.url.toUri())
+        }
+
+        // Fallback to yt-dlp if InnerTube had no stream
+        val fallbackYtDlp = runBlocking(Dispatchers.IO) {
+            YtDlpStreamResolver.resolveAudioStream(context, mediaId, audioQuality).getOrNull()
+        } ?: throw PlaybackException("No stream available for download", null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
 
         database.query {
             upsert(
                 FormatEntity(
                     id = mediaId,
-                    itag = format.itag,
-                    mimeType = format.mimeType.split(";")[0],
-                    codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
-                    bitrate = format.bitrate,
-                    sampleRate = format.audioSampleRate,
-                    contentLength = format.contentLength!!,
-                    loudnessDb = playerResponse.playerConfig?.audioConfig?.loudnessDb
+                    itag = fallbackYtDlp.itag,
+                    mimeType = fallbackYtDlp.mimeType.split(";")[0],
+                    codecs = fallbackYtDlp.mimeType.split("codecs=").getOrNull(1)?.removeSurrounding("\"") ?: "opus",
+                    bitrate = fallbackYtDlp.bitrate,
+                    sampleRate = fallbackYtDlp.sampleRate,
+                    contentLength = fallbackYtDlp.contentLength ?: 5000000L,
+                    loudnessDb = null
                 )
             )
         }
 
-        songUrlCache[mediaId] = format.url!! to playerResponse.streamingData!!.expiresInSeconds * 1000L
-        dataSpec.withUri(format.url!!.toUri())
+        songUrlCache[mediaId] = fallbackYtDlp.url to (System.currentTimeMillis() + fallbackYtDlp.expiresInSeconds * 1000L)
+        dataSpec.withUri(fallbackYtDlp.url.toUri())
     }
     val downloadNotificationHelper = DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
     val downloadManager: DownloadManager = DownloadManager(context, databaseProvider, downloadCache, dataSourceFactory, Executor(Runnable::run)).apply {
